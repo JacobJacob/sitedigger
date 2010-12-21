@@ -65,10 +65,10 @@ class DownLoad:
         
         Params:
             url - URL to fetch.
-            post_data - POST Entity,Both Dic and String(urlencoded) will be accept.
+            post_data - POST Entity,Both Dict and String(urlencoded) will be accept.
             cookie - Cookie Header.
         Return:
-            return a Dic like {'html':'','cookie':''}.
+            return a Dict like {'html':'','cookie':''}.
         """
         if DEBUG:
             print "getHtml: ",url
@@ -127,7 +127,7 @@ class DownLoad:
             #if has post entity
             if post_data:
                 #encode post data
-                if isinstance(post_data,dic):
+                if isinstance(post_data,dict):
                     post_data = urllib.urlencode(post_data)
                 
                 response = opener.open(request,post_data)
@@ -194,10 +194,10 @@ class DownLoad:
         
         Params:
             url - URL to fetch.
-            post_data - POST Entity.
+            post_data - POST Entity,Both Dict and String(urlencoded) will be accept.
             cookie - Cookie Header.
         Return:
-            return a Dic like {'html':'','cookie':''}.
+            return a Dict like {'html':'','cookie':''}.
         """
         if DEBUG:
             print "getHttps: ",url
@@ -234,7 +234,7 @@ class DownLoad:
             
             if post_data:
                 #encode post data
-                if isinstance(post_data,dic):
+                if isinstance(post_data,dict):
                     post_data = urllib.urlencode(post_data)
                 
                 conn.request("POST",up.path + "?" + up.query,post_data,headers)
@@ -278,7 +278,7 @@ class DownLoad:
         
         Params:
             url - URL to fetch.
-            post_data - POST Entity.
+            post_data - POST Entity,Both Dict and String(urlencoded) will be accept.
             cookie - Cookie Header.
         Return:
             return the redirect Location.
@@ -317,7 +317,7 @@ class DownLoad:
             
             if post_data:
                 #encode post data
-                if isinstance(post_data,dic):
+                if isinstance(post_data,dict):
                     post_data = urllib.urlencode(post_data)
                 
                 conn.request("POST",up.path + "?" + up.query,post_data,headers)
