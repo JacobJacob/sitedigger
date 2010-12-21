@@ -1,12 +1,13 @@
 # coding:utf-8
 # Description: Common web scraping related functions
-# Author: Richard Penman (richard@sitescraper.net)
+# Author: Richard Penman (richard@sitescraper.net) & redice
 # License: LGPL
 #
 
 import os
 import re
 import time
+import math
 import csv
 import string
 import urllib
@@ -22,7 +23,7 @@ from datetime import datetime, timedelta
 MEDIA_EXTENSIONS = ['ai', 'aif', 'aifc', 'aiff', 'asc', 'au', 'avi', 'bcpio', 'bin', 'c', 'cc', 'ccad', 'cdf', 'class', 'cpio', 'cpt', 'csh', 'css', 'csv', 'dcr', 'dir', 'dms', 'doc', 'drw', 'dvi', 'dwg', 'dxf', 'dxr', 'eps', 'etx', 'exe', 'ez', 'f', 'f90', 'fli', 'flv', 'gif', 'gtar', 'gz', 'h', 'hdf', 'hh', 'hqx', 'ice', 'ico', 'ief', 'iges', 'igs', 'ips', 'ipx', 'jpe', 'jpeg', 'jpg', 'js', 'kar', 'latex', 'lha', 'lsp', 'lzh', 'm', 'man', 'me', 'mesh', 'mid', 'midi', 'mif', 'mime', 'mov', 'movie', 'mp2', 'mp3', 'mpe', 'mpeg', 'mpg', 'mpga', 'ms', 'msh', 'nc', 'oda', 'pbm', 'pdb', 'pdf', 'pgm', 'pgn', 'png', 'pnm', 'pot', 'ppm', 'pps', 'ppt', 'ppz', 'pre', 'prt', 'ps', 'qt', 'ra', 'ram', 'ras', 'rgb', 'rm', 'roff', 'rpm', 'rtf', 'rtx', 'scm', 'set', 'sgm', 'sgml', 'sh', 'shar', 'silo', 'sit', 'skd', 'skm', 'skp', 'skt', 'smi', 'smil', 'snd', 'sol', 'spl', 'src', 'step', 'stl', 'stp', 'sv4cpio', 'sv4crc', 'swf', 't', 'tar', 'tcl', 'tex', 'texi', 'tif', 'tiff', 'tr', 'tsi', 'tsp', 'tsv', 'txt', 'unv', 'ustar', 'vcd', 'vda', 'viv', 'vivo', 'vrml', 'w2p', 'wav', 'wrl', 'xbm', 'xlc', 'xll', 'xlm', 'xls', 'xlw', 'xml', 'xpm', 'xsl', 'xwd', 'xyz', 'zip']
 
 # US_STATES
-US_STATES = ['AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY']
+US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','PR','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY']
 
 
 def to_ascii(html):
@@ -181,7 +182,8 @@ def unescape(text, encoding='utf-8'):
         text = text.encode(encoding, 'ignore')
     except UnicodeError:
         pass
-    return text
+    #replace "\xc2\xa0", fixed by redice 2010.12.17
+    return text.replace("\xc2\xa0"," ")
 
 
 def clean(s):
@@ -276,12 +278,80 @@ def pretty_duration(dt):
         return ''
 
 
+def distance(p1, p2):
+    """Calculate distance between 2 (latitude, longitude) points
+    Multiply result by radius of earth (6373 km, 3960 miles)
+    """
+    lat1, long1 = p1
+    lat2, long2 = p2
+    # Convert latitude and longitude to 
+    # spherical coordinates in radians.
+    degrees_to_radians = math.pi/180.0
+        
+    # phi = 90 - latitude
+    phi1 = (90.0 - lat1)*degrees_to_radians
+    phi2 = (90.0 - lat2)*degrees_to_radians
+        
+    # theta = longitude
+    theta1 = long1*degrees_to_radians
+    theta2 = long2*degrees_to_radians
+        
+    # Compute spherical distance from spherical coordinates.
+        
+    # For two locations in spherical coordinates 
+    # (1, theta, phi) and (1, theta, phi)
+    # cosine( arc length ) = 
+    #    sin phi sin phi' cos(theta-theta') + cos phi cos phi'
+    # distance = rho * arc length
+    
+    cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) + math.cos(phi1)*math.cos(phi2))
+    arc = math.acos( cos )
+
+    # Remember to multiply arc by the radius of the earth 
+    # in your favorite set of units to get length.
+    return arc
+
+
+
+def get_zip_codes(city_file, min_distance):
+    """Find zip codes that are the given distance apart
+    """
+    zip_codes = []
+    zip_code_positions = {}
+    header = None
+    for row in csv.reader(open(city_file)):
+        if header:
+            zip_code, state, city, long1, lat1 = row
+            p1 = float(lat1), float(long1)
+            success = True
+            for z in reversed(zip_codes):
+                if distance(p1, zip_code_positions[z]) * 3960 < min_distance:
+                    success = False
+                    break
+            if success:
+                zip_codes.append(zip_code)
+                zip_code_positions[zip_code] = p1
+        else:
+            header = row
+    return zip_codes
+
+
+
 def logerror(logname,logstr):
     """
     write error log
     logname - logfile name
     logstr - log content
     """
+    log(logname,logstr)
+
+
+def log(logname,logstr):
+    """
+    write log
+    logname - logfile name
+    logstr - log content
+    """
     logf = open(logname,'a+')
-    logf.write(logstr+'\n')
-    logf.close()
+    logf.write(str(time.strftime('%Y-%m-%d-%H-%M-%s',time.localtime(time.time())))+'  '+logstr+'\n')
+    logf.close()    

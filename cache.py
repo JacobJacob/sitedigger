@@ -1,9 +1,16 @@
 # coding:utf-8
 # Description: Page cache class
 # Author: redice
+# License: LGPL
 
 import sqlite3
 import threading
+import zlib
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
 
 DEBUG = True
 
@@ -27,6 +34,7 @@ class Cache:
     def __init__(self,db_name='html_cache.db'):
 
         self.create(db_name)
+        self.compress_level = 6
     
     def create(self,db_name='html_cache.db'):
         """Create and connect SQLite Database
@@ -36,14 +44,14 @@ class Cache:
         self.curs = self.conn.cursor()
 
         #create if htmls tables dosen't exist
-        self.curs.execute('''CREATE TABLE if not exists htmls(url VARCHAR(255) UNIQUE,content TEXT,size INTEGER);''')
+        self.curs.execute('''CREATE TABLE if not exists htmls(url VARCHAR(255) UNIQUE,content BLOB,size INTEGER);''')
         self.conn.commit()
 
     @synchronous
     def set(self,url,data,trytimes=1):
         """Save page data into caches
         """
-        self.set_(url, data, trytimes)
+        self.set_(url, self.serialize(data), trytimes)
 
 
     def set_(self,url,data,trytimes=1):
@@ -76,7 +84,7 @@ class Cache:
     def get(self,url,trytimes=1):
         """Get page from caches
         """
-        return self.get_(url, trytimes)
+        return self.deserialize(self.get_(url, trytimes))
         
         
     def get_(self,url,trytimes=1):
@@ -102,10 +110,20 @@ class Cache:
                return self.get_(url, trytimes-1)
             else:    
                 return ''
+    
+    def serialize(self, value):
+        """convert object to a compressed pickled string to save in the db
+        """
+        return sqlite3.Binary(zlib.compress(pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL), self.compress_level))
+    
+    def deserialize(self, value):
+        """convert compressed pickled string from database back into an object
+        """
+        return pickle.loads(zlib.decompress(value)) if value else value
 
 
 if __name__ == '__main__':
     # test performance of Cache class
     cache = Cache()
     cache.set('http://www.redicecn.com', 'This is redice\'s blog!')
-    print cache.get('http://www.redicecn.com')
+    print cache.get('http://www.redicecn2.com')

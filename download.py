@@ -1,15 +1,18 @@
 # coding:utf-8
 # Description: Page download class
 # Author: redice
+# License: LGPL
 
 import urllib
 import urllib2
 from urllib2 import URLError, HTTPError
 from StringIO import StringIO
+import common
 import cache
 import gzip
 import socket
 import threading
+import time
 
 DEBUG = True
 
@@ -54,7 +57,7 @@ class DownLoad:
         socket.setdefaulttimeout(120)
         
 
-    def getHtml(self,url,post_data=None,cookie=None,cached=True):
+    def getHtml(self,url,post_data=None,cookie=None,cached=True,sleep=None):
         """Fetch the target html
         url - URL to fetch
         post_data - POST Entity
@@ -74,8 +77,11 @@ class DownLoad:
                  if result!='':               
                     # find the cache data
                     return result
-
-
+                
+            #as the firewall,sometimes need to delay request
+            if sleep:
+                time.sleep(sleep)
+                
             #create a request
             request = urllib2.Request(url)
 
@@ -96,7 +102,14 @@ class DownLoad:
             opener = urllib2.build_opener()
 
             if self.proxy:
-                opener.add_handler(urllib2.ProxyHandler({'http' : self.proxy}))            
+                if isinstance(self.proxy,list):
+                    #Take turns to use
+                    proxy = self.proxy.pop()
+                    self.proxy.insert(0,proxy)
+                else:
+                    proxy = self.proxy
+                
+                opener.add_handler(urllib2.ProxyHandler({'http' : proxy}))            
            
             #if has post entity
             if post_data:
@@ -111,6 +124,9 @@ class DownLoad:
                   
             if response.headers.get('content-encoding') == 'gzip':
                 result = gzip.GzipFile(fileobj=StringIO(result)).read()
+            
+            #deal with \xc2\xa0
+            result = result.replace("\xc2\xa0"," ")
             
             cs ='{'
             for sc in response.headers.get('Set-Cookie'):
@@ -132,6 +148,7 @@ class DownLoad:
             if DEBUG:
                 print 'Error retrieving data:',e
                 print 'Server error document follows:\n'
+                common.logerror('error.log', "getHTML::Error retrieving data. %s, error reason: %s " % (url,e))
                 #print e.read()
             return ''
         except URLError, e:
@@ -139,19 +156,22 @@ class DownLoad:
                 if DEBUG:
                     print 'Failed to reach a server.'
                     print 'Reason: ', e.reason
+                    common.logerror('error.log', "getHTML::Failed to reach a server. %s, error reason: %s " % (url,e.reason))
                 return ''
             elif hasattr(e, 'code'):
                 if DEBUG:
                     print 'The server couldn\'t fulfill the request.'
                     print 'Error code: ', e.code
+                    common.logerror('error.log', "getHTML::The server couldn\'t fulfill the request. %s, error code: %s " % (url,e.code))
                 return ''
         except Exception, e:
             if DEBUG:
                 print e
+                common.logerror('error.log', "getHTML::Unknow Exception. %s, error info: %s " % (url,e))
             return ''
     
         
-    def getLocation(self,url,post_data=None,cookie=None,cached=True):
+    def getLocation(self,url,post_data=None,cookie=None,cached=True,sleep=None):
         """Fetch the redirect location
         url - URL to fetch
         post_data - POST Entity
@@ -171,7 +191,10 @@ class DownLoad:
                 if result!='':
                     # find the cache data
                     return result
-            
+            #as the firewall,sometimes need to delay request
+            if sleep:
+                time.sleep(sleep)
+                
             #create a request
             request = urllib2.Request(url)
 
@@ -188,7 +211,14 @@ class DownLoad:
             opener = urllib2.build_opener(SmartRedirectHandler())
 
             if self.proxy:
-                opener.add_handler(urllib2.ProxyHandler({'http' : self.proxy}))            
+                if isinstance(self.proxy,list):
+                    #Take turns to use
+                    proxy = self.proxy.pop()
+                    self.proxy.insert(0,proxy)
+                else:
+                    proxy = self.proxy
+                
+                opener.add_handler(urllib2.ProxyHandler({'http' : proxy}))            
                                         
             #if has post entity
             if post_data:
@@ -214,7 +244,7 @@ class DownLoad:
             
             #no content,don't save
             if not result or len(result)==0:
-                return ''
+                return url
             
             if cached:
                 #save into caches
@@ -225,23 +255,27 @@ class DownLoad:
             if DEBUG:
                 print 'Error retrieving data:',e
                 print 'Server error document follows:\n'
+                common.logerror('error.log', "getHTML::Error retrieving data. %s, error reason: %s " % (url,e))
                 #print e.read()
-            return ''
+            return url
         except URLError, e:
             if hasattr(e, 'reason'):
                 if DEBUG:
                     print 'Failed to reach a server.'
                     print 'Reason: ', e.reason
-                return ''
+                    common.logerror('error.log', "getHTML::Failed to reach a server. %s, error reason: %s " % (url,e.reason))
+                return url
             elif hasattr(e, 'code'):
                 if DEBUG:
                     print 'The server couldn\'t fulfill the request.'
                     print 'Error code: ', e.code
-                return ''
+                    common.logerror('error.log', "getHTML::The server couldn\'t fulfill the request. %s, error code: %s " % (url,e.code))
+                return url
         except Exception, e:
             if DEBUG:
                 print e
-            return ''
+                common.logerror('error.log', "getHTML::Unknow Exception. %s, error info: %s " % (url,e))
+            return url
 
 
 class SmartRedirectHandler(urllib2.HTTPRedirectHandler):
