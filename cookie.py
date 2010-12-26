@@ -64,6 +64,28 @@ def dict2cookie(dic):
     return cookie
 
 
+def tidy_cookie(cookie):
+    """
+    Tidy cookie
+    """
+    param_array = cookie.split(';')
+    cookie = ''
+    for param in param_array:
+        if not param: continue
+        if '=' not in param: continue
+
+        param = param.strip()
+
+        name,equal,value = param.partition('=')
+
+        if name.lower() == 'expires' or name.lower() == 'path': continue
+
+        cookie = cookie + param + ';'
+
+
+    return cookie            
+
+
 
 def merge_cookie(cookie_old,cookie_new):
     """
@@ -74,12 +96,14 @@ def merge_cookie(cookie_old,cookie_new):
 
     dic_old.update(dic_new)
 
-    return dict2cookie(dic_old)    
+    return dict2cookie(dic_old)
 
 
 if __name__ == '__main__':
 
     #Test cookie2dict & dict2cookie
+
+    print tidy_cookie('ASPSESSIONIDCCSQQCDB=NKPFHJIAKJMBELINHGFJNDMC; Path=/; expires=Thu; 30-Oct-1980 16:00:00 GMT;')    
     
     cookie1 = 'ASPSESSIONIDCCSQQCDB=NKPFHJIAKJMBELINHGFJNDMC; blog=pass=123456&user=redice'
     cookie2 = 'blog=pass=654321&user=redice&sex=0'
