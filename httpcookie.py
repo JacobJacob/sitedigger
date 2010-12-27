@@ -148,11 +148,18 @@ class httpcookie:
         """
         Get cookie by domain
         """
-
+        cookie = ''
         if self.cookie_cache.has_key(domain):
-            return self.cookie_cache[domain]
-        else:
-            return ''
+            cookie = self.cookie_cache[domain]
+
+        if self.cookie_cache.has_key('.'+domain):
+            cookie = cookie + ';' + self.cookie_cache['.'+domain]
+        
+        hostname,dot,domain = domain.partition('.')
+        if self.cookie_cache.has_key('.'+domain):
+            cookie = cookie + ';' + self.cookie_cache['.'+domain]
+        
+        return cookie       
 
 
 if __name__ == '__main__':
